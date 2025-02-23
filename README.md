@@ -17,22 +17,6 @@ An AI-driven **e-learning mobile application** built with **React Native and Fir
 - **Expo Router** (Navigation)  
 - **OpenAI API** (AI-based course generation)  
 
-## 📂 Project Structure  
-
-/project-root
-│-- /app
-│   │-- /home (Course generation UI)
-│   │-- /profile (User context management)
-│   │-- /explore (AI Models & Firebase config)
-│   │-- /progress (Shared UI components)
-│-- /context (User context management)
-│-- /config (AI Models & Firebase config)
-│-- /components (Shared UI components)
-│-- /assets (Images & icons)
-│-- App.js (Main entry point)
-│-- package.json (Dependencies & scripts)
-│-- README.md (Project documentation)
-
 
 
 ## 🏗️ Installation & Setup  
