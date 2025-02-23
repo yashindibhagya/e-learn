@@ -32,7 +32,8 @@ An AI-driven **e-learning mobile application** built with **React Native and Fir
 │-- App.js (Main entry point)
 │-- package.json (Dependencies & scripts)
 │-- README.md (Project documentation)
-```
+
+
 
 ## 🏗️ Installation & Setup  
 
