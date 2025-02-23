@@ -1,8 +1,3 @@
-Here’s a **README.md** file for your project:  
-
----
-
-```markdown
 # 📚 AI-Powered E-Learning Platform  
 
 An AI-driven **e-learning mobile application** built with **React Native and Firebase**. The app dynamically generates topics and courses based on user input, providing a **personalized learning experience**.
@@ -24,7 +19,6 @@ An AI-driven **e-learning mobile application** built with **React Native and Fir
 
 ## 📂 Project Structure  
 
-```
 /project-root
 │-- /app
 │   │-- /home (Course generation UI)
