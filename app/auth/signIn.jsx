@@ -1,260 +1,154 @@
-import React, { useState } from "react";
-import {
-    View,
-    Text,
-    StyleSheet,
-    Image,
-    TextInput,
-    TouchableOpacity,
-    ActivityIndicator,
-    Alert,
-    SafeAreaView,
-    ScrollView,
-    KeyboardAvoidingView,
-    Platform,
-} from "react-native";
-import { useRouter } from "expo-router";
-import { MaterialIcons } from "@expo/vector-icons";
-import { loginUser, resetPassword } from "../../services/authService";
-import Button from "../../Components/Shared/Button";
+import { View, Text, StyleSheet, Image, TextInput, TouchableOpacity, Pressable, ToastAndroid, ActivityIndicator } from 'react-native';
+import React, { useContext, useState, useEffect } from 'react';
+import { useRouter } from 'expo-router';
+import { signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
+import { auth, db } from '../../config/firebaseConfig';
+import { doc, getDoc } from 'firebase/firestore';
+import { UserDetailContext } from '../../context/UserDetailContext';
 
-/**
- * Sign In screen for users who can type
- */
 export default function SignIn() {
-    const router = useRouter();
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const { setUserDetail } = useContext(UserDetailContext);
+  const [loading, setLoading] = useState(false);
 
-    // Handle sign in
-    const handleSignIn = async () => {
-        // Validate input
-        if (!email.trim()) {
-            Alert.alert("Error", "Please enter your email");
-            return;
-        }
+  // Check if the user is already logged in
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        console.log("User already signed in:", user);
+        await getUserDetail(user.uid);
+        router.replace('/(tabs)/home');
+      }
+    });
 
-        if (!password) {
-            Alert.alert("Error", "Please enter your password");
-            return;
-        }
+    return unsubscribe; // Clean up listener on component unmount
+  }, []);
 
-        setLoading(true);
+  const onSignInClick = async () => {
+    if (!email || !password) {
+      ToastAndroid.show('Email and password are required.', ToastAndroid.SHORT);
+      return;
+    }
 
-        try {
-            // Attempt to sign in
-            await loginUser(email, password);
+    setLoading(true);
+    try {
+      const resp = await signInWithEmailAndPassword(auth, email.trim(), password);
+      const user = resp.user;
+      console.log("User signed in:", user);
+      await getUserDetail(user.uid);
+      setLoading(false);
 
-            // On success, navigate to home (no need to manually navigate as the auth listener in index.jsx will handle it)
-        } catch (error) {
-            console.error("Login error:", error);
+      // Navigate to home after successful sign-in
+      router.replace('/(tabs)/home');
+    } catch (e) {
+      console.log("Sign-in error:", e.message);
+      setLoading(false);
+      ToastAndroid.show('Incorrect email or password', ToastAndroid.SHORT);
+    }
+  };
 
-            // Handle specific error codes
-            let errorMessage = "Failed to sign in. Please check your credentials and try again.";
+  // Fetch user details
+  const getUserDetail = async (uid) => {
+    try {
+      const result = await getDoc(doc(db, 'users', uid));
+      if (result.exists()) {
+        setUserDetail(result.data());
+        console.log("User details:", result.data());
+      } else {
+        console.log("User data not found in Firestore.");
+      }
+    } catch (error) {
+      console.log("Error fetching user details:", error.message);
+    }
+  };
 
-            if (error.code === 'auth/invalid-email') {
-                errorMessage = "Invalid email address.";
-            } else if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-                errorMessage = "Incorrect email or password.";
-            } else if (error.code === 'auth/too-many-requests') {
-                errorMessage = "Too many failed sign in attempts. Please try again later.";
-            }
+  return (
+    <View style={styles.container}>
+      <Image source={require('./../../assets/images/logo.png')} style={styles.logo} />
+      <Text style={styles.heading}>Sign In</Text>
 
-            Alert.alert("Sign In Failed", errorMessage);
-        } finally {
-            setLoading(false);
-        }
-    };
+      <TextInput  
+        placeholder="Email" 
+        style={styles.textInput}
+        keyboardType="email-address"
+        autoCapitalize="none"
+        onChangeText={setEmail}
+        value={email}
+      />
+      <TextInput  
+        placeholder="Password" 
+        secureTextEntry={true} 
+        style={styles.textInput}
+        onChangeText={setPassword}
+        value={password}
+      />
 
-    // Handle forgot password
-    const handleForgotPassword = async () => {
-        if (!email.trim()) {
-            Alert.alert("Error", "Please enter your email to reset password");
-            return;
-        }
+      <TouchableOpacity onPress={onSignInClick} disabled={loading} style={styles.button}>
+        {!loading ? (
+          <Text style={styles.buttonText}>Sign In</Text>
+        ) : (
+          <ActivityIndicator size="small" color="#fff" />
+        )}
+      </TouchableOpacity>
 
-        try {
-            await resetPassword(email.trim());
-            Alert.alert(
-                "Password Reset Email Sent",
-                "Check your email for instructions to reset your password"
-            );
-        } catch (error) {
-            console.error("Password reset error:", error);
-
-            let errorMessage = "Failed to send password reset email.";
-            if (error.code === 'auth/invalid-email') {
-                errorMessage = "Invalid email address.";
-            } else if (error.code === 'auth/user-not-found') {
-                errorMessage = "No account found with this email.";
-            }
-
-            Alert.alert("Error", errorMessage);
-        }
-    };
-
-    return (
-        <SafeAreaView style={styles.safeArea}>
-            <KeyboardAvoidingView
-                style={styles.keyboardAvoidingView}
-                behavior={Platform.OS === "ios" ? "padding" : undefined}
-            >
-                <ScrollView
-                    style={styles.container}
-                    contentContainerStyle={styles.contentContainer}
-                    keyboardShouldPersistTaps="handled"
-                >
-                    {/* Back Button */}
-                    <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-                        <MaterialIcons name="arrow-back" size={20} color="black" />
-                    </TouchableOpacity>
-
-                    {/* Logo */}
-                    <Image
-                        source={require("../../assets/images/gesture.png")}
-                        style={styles.logo}
-                    />
-
-                    {/* Header */}
-                    <Text style={styles.heading}>Welcome Back</Text>
-                    <Text style={styles.subHeading}>
-                        Sign in to continue your sign language journey
-                    </Text>
-
-                    {/* Form */}
-                    <TextInput
-                        placeholder="Email"
-                        style={styles.textInput}
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        onChangeText={setEmail}
-                        value={email}
-                    />
-
-                    <TextInput
-                        placeholder="Password"
-                        secureTextEntry={true}
-                        style={styles.textInput}
-                        onChangeText={setPassword}
-                        value={password}
-                    />
-
-                    {/* Forgot Password */}
-                    <TouchableOpacity
-                        onPress={handleForgotPassword}
-                        style={styles.forgotPasswordContainer}
-                    >
-                        <Text style={styles.forgotPassword}>Forgot Password?</Text>
-                    </TouchableOpacity>
-
-                    {/* Sign In Button */}
-                    <Button
-                        text="Sign In"
-                        onPress={handleSignIn}
-                        loading={loading}
-                        style={styles.button}
-                    />
-
-                    {/* Create Account Link */}
-                    <View style={styles.buttonContainer}>
-                        <Text>Don't have an account?</Text>
-                        <TouchableOpacity onPress={() => router.push("/auth/signUp")}>
-                            <Text style={styles.signUpLink}>Create New Account</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Decorative Image */}
-                    <Image
-                        source={require("../../assets/images/Unt.png")}
-                        style={styles.lowerLeaves}
-                    />
-                </ScrollView>
-            </KeyboardAvoidingView>
-        </SafeAreaView>
-    );
+      <View style={styles.buttonContainer}>
+        <Text>Don't have an account?</Text>
+        <Pressable onPress={() => router.push("/auth/signUp")}>
+          <Text style={styles.signIn}>Create New Account</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-    safeArea: {
-        flex: 1,
-        backgroundColor: "#D0F3DA",
-    },
-    keyboardAvoidingView: {
-        flex: 1,
-    },
-    container: {
-        flex: 1,
-    },
-    contentContainer: {
-        flexGrow: 1,
-        alignItems: "center",
-        padding: 25,
-    },
-    logo: {
-        width: 100,
-        height: 100,
-        marginTop: 80,
-        marginBottom: 20,
-    },
-    heading: {
-        textAlign: "center",
-        fontSize: 30,
-        fontWeight: "bold",
-        marginBottom: 10,
-        color: "#155658",
-    },
-    subHeading: {
-        textAlign: "center",
-        fontSize: 16,
-        color: "#555",
-        marginBottom: 30,
-    },
-    textInput: {
-        width: "90%",
-        padding: 15,
-        fontSize: 16,
-        marginTop: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: "#555",
-        backgroundColor: "rgba(255,255,255,0.4)",
-        borderRadius: 5,
-    },
-    forgotPasswordContainer: {
-        width: "90%",
-        alignItems: "flex-end",
-        marginTop: 10,
-        marginBottom: 20,
-    },
-    forgotPassword: {
-        fontWeight: "600",
-        color: "#155658",
-    },
-    button: {
-        marginBottom: 20,
-    },
-    buttonContainer: {
-        flexDirection: "row",
-        marginTop: 10,
-    },
-    signUpLink: {
-        color: "#155658",
-        fontWeight: "bold",
-        marginLeft: 5,
-    },
-    lowerLeaves: {
-        top: 60,
-        height: 300,
-        opacity: 0.4,
-    },
-
-    backButton: {
-        position: "absolute",
-        top: 20,
-        left: 10,
-        padding: 10,
-        backgroundColor: "#fff",
-        borderRadius: 30,
-        zIndex: 1,
-    },
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 25,
+  },
+  logo: {
+    width: 100,
+    height: 100,
+    marginBottom: 20,
+  },
+  heading: {
+    textAlign: 'center',
+    fontSize: 30,
+    fontWeight: 'bold',
+    marginBottom: 20,
+  },
+  textInput: {
+    borderWidth: 1,
+    width: '100%',
+    padding: 15,
+    fontSize: 14,
+    marginTop: 10,
+    borderRadius: 8,
+  },
+  button: {
+    padding: 15,
+    backgroundColor: '#3c0061',
+    width: '100%',
+    marginTop: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    marginTop: 20,
+  },
+  signIn: {
+    color: '#3c0061',
+    fontWeight: 'bold',
+    marginLeft: 5,
+  },
 });
